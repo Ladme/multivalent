@@ -1,0 +1,40 @@
+[system]
+# number of times the simulation should be repeated
+repeats         500
+# number of sweeps for system equilibration
+eq_sweeps       5000
+# number of production sweeps
+prod_sweeps     15000
+# movie frame will be written out every N sweeps
+movie_freq      0
+# output file for movie
+movie_file      ../../movie
+# energy of the system will be calculated and reported every N sweeps
+energy_freq     0
+# mean squared deviation for diffusion calculation will be calculated every N sweeps
+msd_freq       100
+# diffusion will be calculated separately for every N repeats
+diff_block     50
+# dimensionality of the calculation (1D/2D)
+dimensionality 2D
+# should the particles be treated like hard spheres?
+hard_spheres   no
+# files to write MSD data into
+# the name must contain `{{BLOCK_NUMBER}}` which will be replaced by the corresponding block number
+msd_file       ../../msd/msd{{BLOCK_NUMBER}}.dat
+
+[particles]
+# number   x    y      A/n    max displacement     size (radius)     wells distance         sine shift          cosine shift 
+    0     0.0  0.0     0.6          0.1                0.0                1.0                  -0.25                 0.5
+    1     0.0  0.0     0.6          0.1                0.0                1.0                  -0.25                 0.5
+    2     0.0  0.0     0.6          0.1                0.0                1.0                  -0.25                 0.5
+    3     0.0  0.0     0.6          0.1                0.0                1.0                  -0.25                 0.5
+    4     0.0  0.0     0.6          0.1                0.0                1.0                  -0.25                 0.5
+
+
+[bonds]
+# bonded particles    force constant (k)        equilibrium distance
+    0       1              1.0                        1.0
+    0       2              1.0                        1.0
+    0       3              1.0                        1.0
+    0       4              1.0                        1.0
