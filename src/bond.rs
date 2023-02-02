@@ -43,7 +43,7 @@ impl Bond {
 
 }
 
-/// Allows the usage of print* functions for Bond.
+/// Allows the usage of print* macros for Bond.
 impl fmt::Display for Bond {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Bonded Particles: {}, {}\nForce Constant: {}\nEquilibrium Distance: {}\n",

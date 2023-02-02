@@ -21,7 +21,7 @@ pub enum Dimensionality {
     TWO,
 }
 
-/// Allows the usage of print* functions for Dimensionality.
+/// Allows the usage of print* macros for Dimensionality.
 impl fmt::Display for Dimensionality {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

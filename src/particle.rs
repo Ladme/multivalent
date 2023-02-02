@@ -76,7 +76,7 @@ impl Particle {
 
 }
 
-/// Allows the usage of print* functions for Particle.
+/// Allows the usage of print* macros for Particle.
 impl fmt::Display for Particle {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Position: {}, {}\nBinding: {}\nMaximal Displacement: {}\nSize: {}\nPotential Wells Distance: {}\nSine shift: {}\nCosine shift: {}\n", 
