@@ -14,10 +14,8 @@ pub struct Diffusion {
     diffusion: Vec<f64>,
     /// vector of Mean Squared Deviations for every sweep
     msd: Vec<f64>,
-    /// vector of particles containing initial positions of particles
-    init_positions: Vec<Particle>,
-    /// number of equilibration sweeps in each simulation repeat
-    eq_sweeps: u32,
+    /// initial center of geometry of the system
+    pub initial_center: [f64; 2],
     /// frequency of MSD calculation
     msd_freq: u32,
     /// vector of sweeps at which MSD was calculated
@@ -31,21 +29,20 @@ pub struct Diffusion {
 impl Diffusion {
 
     /// Generate a new structure for the calculation of diffusion coefficient.
-    pub fn new(system: &System, init_positions: &Vec<Particle>) -> Diffusion {
+    pub fn new(system: &System) -> Diffusion {
 
         let len = system.prod_sweeps / system.msd_freq;
         let mut sweeps = Vec::with_capacity(len as usize);
 
         for i in 0..len {
-            sweeps.push((i + 1) as u32 * system.msd_freq + system.eq_sweeps);
+            sweeps.push((i + 1) as u32 * system.msd_freq);
         }
 
         Diffusion { diffusion: Vec::with_capacity((system.repeats / system.diff_block) as usize),
                     msd:  vec![0.0; (system.prod_sweeps / system.msd_freq) as usize],
-                    eq_sweeps: system.eq_sweeps,
                     msd_freq: system.msd_freq,
-                    sweeps: sweeps,
-                    init_positions: init_positions.clone(),
+                    sweeps,
+                    initial_center: [0.0, 0.0],
                     dimensionality: system.dimensionality,
                     repeats_per_block: system.diff_block,
                   }
@@ -91,18 +88,18 @@ impl Diffusion {
     /// Calculates MSD for the current configuration of particles.
     pub fn calc_msd(&mut self, particles: &Vec<Particle>, current_sweep: u32) {
 
-        for (i, part) in particles.iter().enumerate() {
-            let x = part.position[0] - self.init_positions[i].position[0];
-            let y = part.position[1] - self.init_positions[i].position[1];
+        let center = System::center(particles);
 
-            self.msd[((current_sweep - self.eq_sweeps) / self.msd_freq - 1) as usize] += x * x + y * y;
-        }
+        let x = center[0] - self.initial_center[0];
+        let y = center[1] - self.initial_center[1];
+
+        self.msd[(current_sweep / self.msd_freq - 1) as usize] += x * x + y * y;
     }
 
-    /// Normalizes MSD to be independent of a) the number of simulations it was obtained using and b) the number of particles.
+    /// Normalizes MSD to be independent of the number of simulations it was obtained using.
     pub fn normalize_msd(&mut self) {
         for val in &mut self.msd {
-            *val /= (self.repeats_per_block * self.init_positions.len() as u32) as f64;
+            *val /= self.repeats_per_block as f64;
         }
     }
 

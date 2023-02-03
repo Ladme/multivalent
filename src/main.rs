@@ -40,6 +40,6 @@ fn main() {
     }
 
     system.display();
-    system.run();
+    if !system.run() { return; }
     system.print_statistics();
 }

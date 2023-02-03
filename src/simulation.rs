@@ -113,14 +113,10 @@ impl System {
     /// 
     /// Final diffusion coefficient is calculated by averaging the diffusion coefficients of the individual simulation blocks.
     /// 
-    pub fn run(&mut self) {
-        // create movie file
-        let mut movie = match File::create(&self.movie_file) {
+    pub fn run(&mut self) -> bool {
+        let mut movie = match self.try_creating_movie_file() {
             Ok(x) => x,
-            Err(_) => {
-                eprintln!("\nError. File `{}` could not be created.", &self.movie_file);
-                return;
-            }
+            Err(_) => return false,
         };
 
         let init_positions = self.particles.clone();
@@ -129,7 +125,7 @@ impl System {
         println!("Running simulation ({} repeats, {} equilibration sweeps, {} production sweeps)...", self.repeats, self.eq_sweeps, self.prod_sweeps);
 
         // prepare diffusion calculation
-        let mut diffusion = if self.diff_block != 0 { Some(Diffusion::new(self, &init_positions)) } else { None };
+        let mut diffusion = if self.diff_block != 0 { Some(Diffusion::new(self)) } else { None };
         let n_blocks = if self.diff_block != 0 { self.repeats / self.diff_block } else { 0 };
 
         // repeat the simulation N times, each time starting from the same configuration of particles
@@ -141,32 +137,14 @@ impl System {
             // return particles back to their initial positions
             self.set_positions(&init_positions);
 
-            // run M sweeps for each simulation repeat
-            for sweep in 1..=(self.eq_sweeps + self.prod_sweeps) {
-
-                // perform one MC sweep
-                self.update();
-        
-                // calculate and print energy of the system, if requested
-                if self.energy_freq != 0 && sweep % self.energy_freq == 0 {
-                    println!(">>>> Sweep: {}. Total Energy: {:.4}", sweep, self.energy_full());
-                }
-        
-                // print movie frame, if requested
-                if self.movie_freq != 0 && sweep % self.movie_freq == 0 {
-                    if let Err(_) = self.write_movie(&mut movie, repeat, sweep) {
-                        eprintln!("Warning. Could not write sweep `{}` into movie file `{}`", sweep, self.movie_file);
-                        self.n_warnings += 1;
-                    }
-                }
-
-                // calculate MSD for the current system configuration
-                if self.diff_block != 0 && sweep > self.eq_sweeps && sweep % self.msd_freq == 0 {
-                    if let Some(unwrapped_diff) = diffusion.as_mut() {
-                        unwrapped_diff.calc_msd(&self.particles, sweep);
-                    }
-                }
+            // run equilibration
+            let x = self.run_equilibration(&mut movie, repeat);
+            if let Some(unwrapped_diff) = diffusion.as_mut() {
+                unwrapped_diff.initial_center = x;
             }
+
+            // run production
+            self.run_production(&mut diffusion, &mut movie, repeat);
 
             // calculate diffusion for the current block of simulations
             if self.diff_block != 0 && repeat % self.diff_block == 0 {
@@ -184,9 +162,7 @@ impl System {
                     }
 
                     unwrapped_diff.clear_msd();
-                }
-
-                
+                }   
             }
         }
 
@@ -220,12 +196,46 @@ impl System {
     
                 let (av, std) = unwrapped_diff.get_average_diffusion();
     
-                println!("Mean Diffusion: {:.6} ± {:.6} [~95%]", av * DIFFUSION_MULTIPLIER, 2.0 * std * DIFFUSION_MULTIPLIER);
+                println!("Mean Diffusion: {:.6} ± {:.6} [~68%]", av * DIFFUSION_MULTIPLIER, std * DIFFUSION_MULTIPLIER);
             }
         } else {
             println!("\nDiffusion calculation not requested.");
         }
-        
+
+        true
+
+    }
+
+    /// Run equilibration part of the simulation. 
+    /// Returns a center of geometry of the system at the end of equilibration.
+    fn run_equilibration(&mut self, movie: &mut Option<File>, repeat: u32) -> [f64; 2] {
+        for sweep in 1..=self.eq_sweeps {
+            // perform one MC sweep
+            self.update();
+
+            self.try_printing_energy(sweep, "eq");
+            self.try_writing_movie(movie, sweep, repeat);
+        }
+
+        System::center(&self.particles)
+    }
+
+    /// Run production part of the simulation.
+    fn run_production(&mut self, diffusion: &mut Option<Diffusion>, movie: &mut Option<File>, repeat: u32) {
+        for sweep in 1..=self.prod_sweeps {
+            // perform one MC sweep
+            self.update();
+
+            self.try_printing_energy(sweep, "prod");
+            self.try_writing_movie(movie, sweep, repeat);
+
+            // calculate MSD for the current system configuration
+            if self.diff_block != 0 && sweep % self.msd_freq == 0 {
+                if let Some(unwrapped_diff) = diffusion {
+                    unwrapped_diff.calc_msd(&self.particles, sweep);
+                }
+            }
+        }
 
     }
 
@@ -324,7 +334,23 @@ impl System {
         ((p1.position[0] - p2.position[0]) * (p1.position[0] - p2.position[0]) + 
          (p1.position[1] - p2.position[1]) * (p1.position[1] - p2.position[1])).sqrt()
     }
-    
+
+    /// Returns center of geometry for the particles.
+    pub fn center(particles: &Vec<Particle>) -> [f64; 2] {
+
+        let mut center = [0.0, 0.0];
+
+        for particle in particles {
+            center[0] += particle.position[0];
+            center[1] += particle.position[1];
+        }
+
+        center[0] /= particles.len() as f64;
+        center[1] /= particles.len() as f64;
+
+        center
+    }
+
     /// Performs a single Monte Carlo move consisting of particle translation.
     fn move_particle(&mut self, particle_index: usize) {
         // calculate the original energy of the particle
@@ -396,7 +422,7 @@ impl System {
     }
 
     /// Writes a movie frame into an open file.
-    pub fn write_movie(&self, output: &mut File, repeat: u32, sweep: u32) -> Result<(), io::Error> {
+    pub fn write_movie_frame(&self, output: &mut File, repeat: u32, sweep: u32) -> Result<(), io::Error> {
         write!(output, "@ Repeat {} ; Sweep {} ; Particles {} ; Dimensionality {}\n", repeat, sweep, self.particles.len(), self.dimensionality)?;
 
         for (i, p) in self.particles.iter().enumerate() {
@@ -409,6 +435,43 @@ impl System {
     /// Prints move statistics collected over the simulation
     pub fn print_statistics(&self) {
         self.statistics.report();
+    }
+
+    /// Create a movie file, if requested.
+    fn try_creating_movie_file(&self) -> Result<Option<File>, ()> {
+        if self.movie_freq != 0 {
+            // create movie file
+            let movie = match File::create(&self.movie_file) {
+                Ok(x) => x,
+                Err(_) => {
+                    eprintln!("\nError. File `{}` could not be created.", &self.movie_file);
+                    return Err(());
+                }
+            };
+
+            return Ok(Some(movie));
+        }
+
+        return Ok(None);
+    }
+
+    /// Calculates and prints total energy of the system if target sweep matches energy_freq.
+    fn try_printing_energy(&self, sweep: u32, sim_type: &str) {
+        if self.energy_freq != 0 && sweep % self.energy_freq == 0 {
+            println!(">>>> [{}] Sweep: {}. Total Energy: {:.4}", sim_type, sweep, self.energy_full());
+        }
+    }
+
+    /// Write movie step, if target sweep matches movie_freq.
+    fn try_writing_movie(&mut self, movie: &mut Option<File>, sweep: u32, repeat: u32) {
+        if self.movie_freq != 0 && sweep % self.movie_freq == 0 {
+            if let Some(m) = movie.as_mut() {
+                if let Err(_) = self.write_movie_frame(m, repeat, sweep) {
+                    eprintln!("Warning. Could not write sweep `{}` into movie file `{}`", sweep, self.movie_file);
+                    self.n_warnings += 1;
+                }
+            }
+        } 
     }
 
     /// Checks that the simulation settings makes sense
@@ -556,6 +619,19 @@ mod tests {
             }
         }
 
+    }
+
+    #[test]
+    fn test_center() {
+
+        let system = parse_input(INPUT_FILE).expect("Could not find input file.");
+
+        let expected = [0.26, -0.12];
+        let calculated = System::center(&system.particles);
+
+
+        assert!( (expected[0] - calculated[0]).abs() < 0.0001);
+        assert!( (expected[1] - calculated[1]).abs() < 0.0001);
     }
 
     #[test]
