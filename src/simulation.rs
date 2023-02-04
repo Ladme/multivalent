@@ -477,6 +477,26 @@ impl System {
     /// Checks that the simulation settings makes sense
     pub fn sanity_check(&mut self) -> bool {
 
+        // check that the number of repeats is positive
+        if self.repeats <= 0 {
+            eprintln!("Error. `repeats` is {} but it must be larger than zero.", self.repeats);
+            return false;
+        }
+
+        // check that the number of equilibration sweeps is not zero
+        if self.eq_sweeps == 0 {
+            eprintln!("Warning. `eq_sweeps` is 0 which means that the simulation would have no equilibration phase.");
+            eprintln!("That seems incorrect.");
+            self.n_warnings += 1;
+        }
+
+        // check that the number of production sweeps is not zero
+        if self.prod_sweeps == 0 {
+            eprintln!("Error. `prod_sweeps` is 0 which means that the simulation would have no production phase.");
+            eprintln!("That is not supported.");
+            return false;
+        }
+
         // check that the number of repeats is divisible by diff_block
         if self.diff_block != 0 && self.repeats % self.diff_block != 0 {
             eprintln!("Error. `repeats` ({}) is not divisible by `diff_block` ({}).", self.repeats, self.diff_block);
@@ -555,8 +575,13 @@ impl System {
             if particle.size < 0.0 {
                 eprintln!("Error. Particle {} has `size` of {}. `size` must be positive or zero.", i, particle.size);
                 return false;
-            }
-            
+            }   
+        }
+
+        // check that msd_freq is not zero
+        if self.diff_block != 0 && self.msd_freq <= 0 {
+            eprintln!("Error. `msd_freq` is {} but it must be larger than zero.", self.msd_freq);
+            return false;
         }
 
         true

@@ -11,7 +11,7 @@ mod diffusion;
 use parser::parse_input;
 use std::env;
 
-pub const VERSION: &str = "0.2.0";
+pub const VERSION: &str = "0.3.1";
 /// Arbitrary constant that is used to multiply the obtained diffusion values, so they are human-readable.
 pub const DIFFUSION_MULTIPLIER: f64 = 1000.0;
 

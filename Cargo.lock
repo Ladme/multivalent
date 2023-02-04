@@ -84,7 +84,7 @@ dependencies = [
 
 [[package]]
 name = "multivalent"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "linreg",
  "rand 0.8.5",
