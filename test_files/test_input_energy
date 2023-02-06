@@ -1,13 +1,13 @@
 # IMPORTANT: DO NOT MODIFY, RENAME OR REMOVE THIS FILE (unless you want tests to stop working)
 [system]
-repeats         500
+repeats         2
 eq_sweeps       5000
 prod_sweeps     15000
 movie_freq      0
 movie_file      ../../movie
 energy_freq     0
 msd_freq       100
-diff_block     50
+diff_block     2
 dimensionality 2D
 hard_spheres   yes
 msd_file       ../../msd/msd{{BLOCK_NUMBER}}.dat

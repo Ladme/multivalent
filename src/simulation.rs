@@ -221,7 +221,7 @@ impl System {
     }
 
     /// Run production part of the simulation.
-    fn run_production(&mut self, diffusion: &mut Option<Diffusion>, movie: &mut Option<File>, repeat: u32) {
+    pub fn run_production(&mut self, diffusion: &mut Option<Diffusion>, movie: &mut Option<File>, repeat: u32) {
         for sweep in 1..=self.prod_sweeps {
             // perform one MC sweep
             self.update();

@@ -127,3 +127,81 @@ impl Diffusion {
     }
 
 }
+
+
+/*
+*************************************
+            UNIT TESTS
+*************************************
+*/
+
+
+#[cfg(test)]
+mod tests {
+
+    use crate::parser::parse_input;
+    use super::Diffusion;
+
+    const INPUT_FILE: &str = "test_files/test_input_energy";
+
+    #[test]
+    fn test_clear_msd() {
+
+        let mut system = parse_input(INPUT_FILE).expect("Could not find input file.");
+        let mut diffusion = Some(Diffusion::new(&system));
+
+        system.run_production( &mut diffusion, &mut None, 1);
+
+        if let Some(unwrapped) = diffusion.as_mut() {
+
+            for val in &unwrapped.msd {
+                assert_ne!(*val, 0.0);
+            }
+    
+            unwrapped.clear_msd();
+    
+            for val in &unwrapped.msd {
+                assert_eq!(*val, 0.0);
+            }
+
+        }   
+    }
+
+    #[test]
+    fn test_calc_msd() {
+
+        let system = parse_input(INPUT_FILE).expect("Could not find input file.");
+
+        let mut diffusion = Diffusion::new(&system);
+
+        diffusion.initial_center = [0.0, 0.0];
+        diffusion.calc_msd(&system.particles, 100);
+
+        let result = diffusion.msd[0];
+        let expected = 0.082;
+
+        assert!((result - expected).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_normalize_msd() {
+
+        let mut system = parse_input(INPUT_FILE).expect("Could not find input file.");
+        let mut diffusion = Some(Diffusion::new(&system));
+
+        system.run_production( &mut diffusion, &mut None, 1);
+        system.run_production(&mut diffusion, &mut None, 2);
+
+        if let Some(unwrapped) = diffusion.as_mut() {
+
+            let original = unwrapped.msd.clone();
+
+            unwrapped.normalize_msd();
+
+            for i in 0..unwrapped.msd.len() {
+                assert!((original[i] - 2.0 * unwrapped.msd[i]).abs() < 0.0001);
+            }
+        }
+    }
+
+}
