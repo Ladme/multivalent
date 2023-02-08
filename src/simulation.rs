@@ -137,14 +137,20 @@ impl System {
             // return particles back to their initial positions
             self.set_positions(&init_positions);
 
-            // run equilibration
-            let x = self.run_equilibration(&mut movie, repeat);
-            if let Some(unwrapped_diff) = diffusion.as_mut() {
-                unwrapped_diff.initial_center = x;
-            }
+            for sweep in 1..=(self.eq_sweeps + self.prod_sweeps) {
+                // perform one MC sweep
+                self.update();
+    
+                self.try_printing_energy(sweep);
+                self.try_writing_movie(&mut movie, sweep, repeat);
 
-            // run production
-            self.run_production(&mut diffusion, &mut movie, repeat);
+                // calculate MSD for the current system configuration
+                if self.diff_block != 0 && sweep % self.msd_freq == 0 {
+                    if let Some(unwrapped_diff) = diffusion.as_mut() {
+                        unwrapped_diff.calc_msd(&self.particles, sweep);
+                    }
+                }
+            }
 
             // calculate diffusion for the current block of simulations
             if self.diff_block != 0 && repeat % self.diff_block == 0 {
@@ -203,39 +209,6 @@ impl System {
         }
 
         true
-
-    }
-
-    /// Run equilibration part of the simulation. 
-    /// Returns a center of geometry of the system at the end of equilibration.
-    fn run_equilibration(&mut self, movie: &mut Option<File>, repeat: u32) -> [f64; 2] {
-        for sweep in 1..=self.eq_sweeps {
-            // perform one MC sweep
-            self.update();
-
-            self.try_printing_energy(sweep, "eq");
-            self.try_writing_movie(movie, sweep, repeat);
-        }
-
-        System::center(&self.particles)
-    }
-
-    /// Run production part of the simulation.
-    pub fn run_production(&mut self, diffusion: &mut Option<Diffusion>, movie: &mut Option<File>, repeat: u32) {
-        for sweep in 1..=self.prod_sweeps {
-            // perform one MC sweep
-            self.update();
-
-            self.try_printing_energy(sweep, "prod");
-            self.try_writing_movie(movie, sweep, repeat);
-
-            // calculate MSD for the current system configuration
-            if self.diff_block != 0 && sweep % self.msd_freq == 0 {
-                if let Some(unwrapped_diff) = diffusion {
-                    unwrapped_diff.calc_msd(&self.particles, sweep);
-                }
-            }
-        }
 
     }
 
@@ -415,7 +388,10 @@ impl System {
             println!("{}", part);
         }
 
-        println!("BONDS:");
+        let center = System::center(&self.particles);
+        println!("\nInitial center of geometry: {:.4} {:.4}", center[0], center[1]);
+
+        println!("\nBONDS:");
         for bond in &self.bonds {
             println!("{}", bond);
         }
@@ -456,9 +432,9 @@ impl System {
     }
 
     /// Calculates and prints total energy of the system if target sweep matches energy_freq.
-    fn try_printing_energy(&self, sweep: u32, sim_type: &str) {
+    fn try_printing_energy(&self, sweep: u32) {
         if self.energy_freq != 0 && sweep % self.energy_freq == 0 {
-            println!(">>>> [{}] Sweep: {}. Total Energy: {:.4}", sim_type, sweep, self.energy_full());
+            println!(">>>> Sweep: {}. Total Energy: {:.4}", sweep, self.energy_full());
         }
     }
 

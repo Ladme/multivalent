@@ -24,6 +24,8 @@ pub struct Diffusion {
     dimensionality: Dimensionality,
     /// number of simulations in one block
     repeats_per_block: u32,
+    /// index of the sweep in sweeps vector corresponding to the start of production phase
+    diff_calc_start: usize,
 }
 
 impl Diffusion {
@@ -31,20 +33,23 @@ impl Diffusion {
     /// Generate a new structure for the calculation of diffusion coefficient.
     pub fn new(system: &System) -> Diffusion {
 
-        let len = system.prod_sweeps / system.msd_freq;
+        let len = (system.prod_sweeps + system.eq_sweeps) / system.msd_freq;
         let mut sweeps = Vec::with_capacity(len as usize);
 
         for i in 0..len {
             sweeps.push((i + 1) as u32 * system.msd_freq);
         }
 
+        let diff_calc_start = (system.eq_sweeps / system.msd_freq) as usize;
+
         Diffusion { diffusion: Vec::with_capacity((system.repeats / system.diff_block) as usize),
-                    msd:  vec![0.0; (system.prod_sweeps / system.msd_freq) as usize],
+                    msd:  vec![0.0; ((system.prod_sweeps + system.eq_sweeps) / system.msd_freq) as usize],
                     msd_freq: system.msd_freq,
                     sweeps,
-                    initial_center: [0.0, 0.0],
+                    initial_center: System::center(&system.particles),
                     dimensionality: system.dimensionality,
                     repeats_per_block: system.diff_block,
+                    diff_calc_start,
                   }
     }
 
@@ -53,9 +58,11 @@ impl Diffusion {
     /// ## Implementation
     /// Fits a line to the MSD curve. Slope of the line (divided by dimensionality) is the diffusion coefficient.
     pub fn calc_diffusion(&mut self) {
-        
 
-        let (slope, _): (f64, f64) = linreg::linear_regression(&self.sweeps, &self.msd).expect("\nError. Internal linalg error. Could not fit line through MSD data.");
+        //println!("{:?}", &self.sweeps[self.diff_calc_start..]);
+        //println!("{:?}", &self.msd[self.diff_calc_start..]);
+
+        let (slope, _): (f64, f64) = linreg::linear_regression(&self.sweeps[self.diff_calc_start..], &self.msd[self.diff_calc_start..]).expect("\nError. Internal linalg error. Could not fit line through MSD data.");
 
         let diff = match self.dimensionality {
             Dimensionality::TWO => slope / 4.0,
@@ -150,7 +157,15 @@ mod tests {
         let mut system = parse_input(INPUT_FILE).expect("Could not find input file.");
         let mut diffusion = Some(Diffusion::new(&system));
 
-        system.run_production( &mut diffusion, &mut None, 1);
+        for sweep in 1..=(system.eq_sweeps + system.prod_sweeps) {
+            system.update();
+
+            if system.diff_block != 0 && sweep % system.msd_freq == 0 {
+                if let Some(unwrapped_diff) = diffusion.as_mut() {
+                    unwrapped_diff.calc_msd(&system.particles, sweep);
+                }
+            }
+        }
 
         if let Some(unwrapped) = diffusion.as_mut() {
 
@@ -189,8 +204,17 @@ mod tests {
         let mut system = parse_input(INPUT_FILE).expect("Could not find input file.");
         let mut diffusion = Some(Diffusion::new(&system));
 
-        system.run_production( &mut diffusion, &mut None, 1);
-        system.run_production(&mut diffusion, &mut None, 2);
+        for _ in 0..2 {
+            for sweep in 1..=(system.eq_sweeps + system.prod_sweeps) {
+                system.update();
+
+                if system.diff_block != 0 && sweep % system.msd_freq == 0 {
+                    if let Some(unwrapped_diff) = diffusion.as_mut() {
+                        unwrapped_diff.calc_msd(&system.particles, sweep);
+                    }
+                }
+            }
+        }
 
         if let Some(unwrapped) = diffusion.as_mut() {
 
