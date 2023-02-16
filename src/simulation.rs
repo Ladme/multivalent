@@ -14,6 +14,7 @@ use crate::particle::Particle;
 use crate::bond::Bond;
 use crate::diffusion::Diffusion;
 use crate::DIFFUSION_MULTIPLIER;
+use crate::wl::WangLandau;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum Dimensionality {
@@ -64,6 +65,10 @@ pub struct System {
     pub msd_file: String,
     /// number of warnings raised during the simulation
     pub n_warnings: u32,
+    /// structure for wang-landau calculation
+    pub wang_landau: WangLandau,
+    /// should wang-landau calculation be run?
+    pub run_wl: bool,
 }
 
 impl System {
@@ -80,6 +85,7 @@ impl System {
                 energy_freq: 0, dimensionality: Dimensionality::TWO,
                 msd_freq: 100, diff_block: 50, hard_spheres: false,
                 msd_file: "msd{{BLOCK_NUMBER}}.dat".to_string(), n_warnings: 0,
+                wang_landau: WangLandau::new(), run_wl: false,
             }
     }
 
@@ -150,7 +156,17 @@ impl System {
                         unwrapped_diff.calc_msd(&self.particles, sweep);
                     }
                 }
+
+                if self.run_wl && sweep % 100000 == 0 {
+                    println!("Current ALPHA: {}", self.wang_landau.alpha);
+                    if self.wang_landau.check_alpha_limit() {
+                        self.wang_landau.write_free_energy();
+                        break;
+                    }
+                }
             }
+
+            
 
             // calculate diffusion for the current block of simulations
             if self.diff_block != 0 && repeat % self.diff_block == 0 {
@@ -218,7 +234,12 @@ impl System {
         for _ in 0..self.particles.len() {
             // randomly select a particle to move
             let index = self.rng.gen_range(0..self.particles.len());
-            self.move_particle(index);
+            
+            if self.run_wl {
+                self.move_particle_wl(index);
+            } else {
+                self.move_particle(index);
+            }
         }
     }
 
@@ -350,6 +371,37 @@ impl System {
         } else {
             self.statistics.accepted[particle_index] += 1;
         }
+
+    }
+
+    fn move_particle_wl(&mut self, particle_index: usize) {
+
+        let old_energy = self.energy_particle(particle_index) + self.wang_landau.energy(&self.particles);
+
+        // save the old position of the particle
+        let old_x = self.particles[particle_index].position[0];
+        let old_y = self.particles[particle_index].position[1];
+
+        // propose a move and update the position of the particle
+        match self.dimensionality {
+            Dimensionality::ONE => self.particles[particle_index].propose_move_1d(&mut self.rng),
+            Dimensionality::TWO => self.particles[particle_index].propose_move_2d(&mut self.rng),
+        }
+
+        // calculate the new energy of the particle
+        let new_energy = self.energy_particle(particle_index) + self.wang_landau.energy(&self.particles);
+
+        // accept or reject the move based on Metropolis criterion
+        if !System::metropolis(new_energy - old_energy, &mut self.rng) {
+            self.particles[particle_index].position[0] = old_x;
+            self.particles[particle_index].position[1] = old_y;
+            self.statistics.rejected[particle_index] += 1;
+        } else {
+            self.statistics.accepted[particle_index] += 1;
+        }
+
+        self.wang_landau.update(&self.particles);
+
 
     }
 

@@ -7,6 +7,7 @@ mod particle;
 mod simulation;
 mod parser;
 mod diffusion;
+mod wl;
 
 use parser::parse_input;
 use std::env;

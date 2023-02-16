@@ -73,6 +73,12 @@ fn parse_system_line(line: &str, system: &mut System) -> bool {
 
         "msd_file" => system.msd_file = split[1].to_string(),
 
+        "wang_landau" => match split[1] {
+            "no" => system.run_wl = false,
+            "yes" => system.run_wl = true,
+            _ => return false,
+        }
+
         _ => return false
     }
 
