@@ -15,6 +15,8 @@ use crate::bond::Bond;
 use crate::diffusion::Diffusion;
 use crate::DIFFUSION_MULTIPLIER;
 
+use core::f64::consts::PI;
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum Dimensionality {
     ONE,
@@ -64,13 +66,17 @@ pub struct System {
     pub msd_file: String,
     /// number of warnings raised during the simulation
     pub n_warnings: u32,
+    /// frequency of chain move attempts
+    pub chain_move_freq: u32,
+    /// maximal displacement of chain move
+    pub chain_max_disp: f64,
 }
 
 impl System {
 
     /// Creates a new System structure with fields filled by default values.
     pub fn new() -> System {
-        let statistics = MoveStatistics { accepted: Vec::new(), rejected: Vec::new() };
+        let statistics = MoveStatistics { accepted: Vec::new(), rejected: Vec::new(), chain_accepted: 0, chain_rejected: 0};
 
         let rng = rand::thread_rng();
 
@@ -80,6 +86,7 @@ impl System {
                 energy_freq: 0, dimensionality: Dimensionality::TWO,
                 msd_freq: 100, diff_block: 50, hard_spheres: false,
                 msd_file: "msd{{BLOCK_NUMBER}}.dat".to_string(), n_warnings: 0,
+                chain_move_freq: 0, chain_max_disp: 0.0,
             }
     }
 
@@ -140,6 +147,11 @@ impl System {
             for sweep in 1..=(self.eq_sweeps + self.prod_sweeps) {
                 // perform one MC sweep
                 self.update();
+
+                // perform chain move attempt
+                if self.chain_move_freq != 0 && sweep % self.chain_move_freq == 0 {
+                    self.move_chain();
+                }
     
                 self.try_printing_energy(sweep);
                 self.try_writing_movie(&mut movie, sweep, repeat);
@@ -367,6 +379,55 @@ impl System {
         false
     }
 
+    /// Performs a chain move.
+    fn move_chain(&mut self) {
+        // calculate original energy of the system
+        let old_energy = self.energy_full();
+
+        // save the original coordinates of particles
+        let old_particles = self.particles.clone();
+        
+        match self.dimensionality {
+            Dimensionality::ONE => {
+
+                let mut dx = self.chain_max_disp * self.rng.gen::<f64>();
+                if self.rng.gen::<bool>() {
+                    dx *= -1.0;   
+                }
+
+                for part in &mut self.particles {
+                    part.position[0] += dx;
+                }
+
+            },
+
+            Dimensionality::TWO => {
+
+                let r = self.chain_max_disp * (self.rng.gen::<f64>()).sqrt();
+                let theta = self.rng.gen::<f64>() * 2.0 * PI;
+
+                for part in &mut self.particles {
+                    part.position[0] += r * theta.cos();
+                    part.position[1] += r * theta.sin();
+                }
+            }
+
+        }
+
+        // calculate the new energy of the system
+        let new_energy = self.energy_full();
+
+        // accept or reject the move based on Metropolis criterion
+        if !System::metropolis(new_energy - old_energy, &mut self.rng) {
+            self.particles = old_particles.clone();
+            self.statistics.chain_rejected += 1;
+        } else {
+            self.statistics.chain_accepted += 1;
+        }
+
+
+    }
+
     /// Displays basic information about the system.
     pub fn display(&self) {
         println!("\nSIMULATION SETTINGS:");
@@ -381,6 +442,8 @@ impl System {
         println!("Dimensionality: {}", self.dimensionality);
         println!("Particles Hard Spheres?: {}", self.hard_spheres);
         println!("MSD File Pattern: {}", self.msd_file);
+        println!("Chain Move Attempts Frequency: {}", self.chain_move_freq);
+        println!("Chain Move Maximal Displacement: {}", self.chain_max_disp);
 
         println!("\nPARTICLES:");
         for (i, part) in self.particles.iter().enumerate() {
