@@ -182,10 +182,10 @@ impl System {
             println!("{} WARNING(S) RAISED! Check the output!", self.n_warnings);
         }
 
-        println!("Time elapsed: {} s", elapsed_time.as_secs());
-        println!("Time per block: {} ms", elapsed_time.as_millis() as f64 / n_blocks as f64);
-        println!("Time per repeat: {} ms", elapsed_time.as_millis() as f64 / self.repeats as f64);
-        println!("Time per sweep: {} μs", elapsed_time.as_micros() as f64 / ((self.eq_sweeps + self.prod_sweeps) * self.repeats) as f64);
+        println!("Time elapsed: {:.4} s", elapsed_time.as_secs());
+        println!("Time per block: {:.4} s", elapsed_time.as_secs() as f64 / n_blocks as f64);
+        println!("Time per repeat: {:.4} ms", elapsed_time.as_millis() as f64 / self.repeats as f64);
+        println!("Time per sweep: {:.4} μs", elapsed_time.as_micros() as f64 / ((self.eq_sweeps + self.prod_sweeps) * self.repeats) as f64);
 
         // calculating and printing total (average) diffusion
         if self.diff_block != 0 {
