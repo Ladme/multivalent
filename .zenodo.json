@@ -1,0 +1,19 @@
+{
+    "title": "Multivalent - Code for MC simulations of multivalent binding",
+    "description": "Code for MC simulations of diffusing multivalent particles",
+    "creators": [
+        {
+            "name": "Ladislav Bartoš",
+            "affiliation": "CEITEC – Central European Institute of Technology, Masaryk University, Czech Republic"
+        }
+    ],
+    "keywords": [
+        "monte carlo simulation",
+        "multivalent binding",
+        "diffusion",
+        "statistical mechanics"
+    ],
+    "license": "mit-license",
+    "access_right": "open",
+    "upload_type": "software"
+}
