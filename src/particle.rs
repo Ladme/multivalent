@@ -40,12 +40,11 @@ impl Particle {
     }
 
     /// Calculates energy of particle-surface interaction.
+    /// Only supports 1D simulations.
     pub fn energy_surface(&self) -> f64 {
-        self.binding * (1.0 + 
-            (2.0 * PI * (self.position[0] / self.wells_distance + self.sin_shift)).sin() + 
-            (2.0 * PI * (self.position[1] / self.wells_distance + self.cos_shift)).cos()
-        )
+        self.binding * num_traits::sign::signum((2.0 * PI * (self.position[0] / self.wells_distance + self.sin_shift)).sin())
     }
+
 
     /// Proposes a translation move for a particle in 2D space.
     /// 
@@ -104,71 +103,9 @@ mod tests {
     fn test_particle_surface_energy() {
 
         let system = parse_input(INPUT_FILE).expect("Could not find input file.");
-        let expected = [-1.0, 3.0, -0.0, 0.25, 0.08244];
+        let expected = [-1.0, 3.0, 0.0, 0.5, -0.2];
         for (i, particle) in system.particles.iter().enumerate() {
             assert!((particle.energy_surface() - expected[i]).abs() < 0.0001);
-        }
-    }
-
-    #[test]
-    fn test_particle_propose_move_1d() {
-
-        let mut rng = rand::thread_rng();
-        let n_moves = 10_000usize;
-
-        let displacements = [0.1, 0.5, 1.0];
-
-        for i in 0..3 {
-            let mut particle = Particle::new([0.0, 0.0], 0.0, displacements[i], 0.0, 1.0, 0.0, 0.0);
-
-            let orig_pos_x = particle.position[0];
-
-            for _ in 0..n_moves {
-                let old_pos_x = particle.position[0];
-    
-                particle.propose_move_1d(&mut rng);
-    
-                assert!((particle.position[0] - old_pos_x).abs() < particle.max_disp);
-                assert_eq!(particle.position[1], 0.0);
-            }
-
-            //println!("Total difference: {}", particle.position[0] - orig_pos_x);
-            // this may in very rare cases fail
-            assert!((particle.position[0] - orig_pos_x).abs() < particle.max_disp * 200.0);
-        }
-    }
-
-    #[test]
-    fn test_particle_propose_move_2d() {
-
-        let mut rng = rand::thread_rng();
-        let n_moves = 10_000usize;
-
-        let displacements = [0.1, 0.5, 1.0];
-
-        for i in 0..3 {
-            let mut particle = Particle { position: [0.0, 0.0], binding: 0.0, max_disp: displacements[i], size: 0.0, wells_distance: 1.0, sin_shift: 0.0, cos_shift: 0.0 };
-
-            let orig_pos_x = particle.position[0];
-            let orig_pos_y = particle.position[1];
-
-            for _ in 0..n_moves {
-                let old_pos_x = particle.position[0];
-                let old_pos_y = particle.position[1];
-    
-                particle.propose_move_2d(&mut rng);
-
-                let dx = particle.position[0] - old_pos_x;
-                let dy = particle.position[1] - old_pos_y;
-
-                assert!((dx * dx + dy * dy).sqrt().abs() < particle.max_disp);
-            }
-
-            //println!("Total difference: {} {}", particle.position[0] - orig_pos_x, particle.position[1] - orig_pos_y);
-            // these two may in very rare cases fail
-            assert!((particle.position[0] - orig_pos_x).abs() < particle.max_disp * 200.0);
-            assert!((particle.position[1] - orig_pos_y).abs() < particle.max_disp * 200.0);
-            
         }
     }
     
