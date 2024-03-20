@@ -7,6 +7,10 @@ pub struct MoveStatistics {
     pub accepted: Vec<u64>,
     /// number of rejected MC moves for every particle
     pub rejected: Vec<u64>,
+    /// number of accepted chain moves
+    pub chain_accepted: u64,
+    /// number of rejected chain moves
+    pub chain_rejected: u64,
 }
 
 impl MoveStatistics {
@@ -35,6 +39,13 @@ impl MoveStatistics {
             println!(">>>> Accepted moves: {} ({:.2} %) ", acc, (100.0 * acc as f64 / total as f64));
             println!(">>>> Rejected moves: {} ({:.2} %) ", rej, (100.0 * rej as f64 / total as f64));
         }
+
+        let chain_total = self.chain_accepted + self.chain_rejected;
+
+        println!("\nMove Statistics for Chain:");
+        println!(">> Total chain moves: {}", chain_total);
+        println!(">>>> Accepted moves: {} ({:.2} %) ", self.chain_accepted, (100.0 * self.chain_accepted as f64 / chain_total as f64));
+        println!(">>>> Rejected moves: {} ({:.2} %) ", self.chain_rejected, (100.0 * self.chain_rejected as f64 / chain_total as f64));
 
     }
 }

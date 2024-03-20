@@ -62,6 +62,10 @@ pub struct System {
     pub hard_spheres: bool,
     /// path to output file for MSD data
     pub msd_file: String,
+    /// chain move attempt will be performed on average every Nth MC sweep
+    pub chain_move_freq: u32,
+    /// maximal displacement of a chain move
+    pub chain_max_disp: f64,
     /// number of warnings raised during the simulation
     pub n_warnings: u32,
 }
@@ -70,7 +74,7 @@ impl System {
 
     /// Creates a new System structure with fields filled by default values.
     pub fn new() -> System {
-        let statistics = MoveStatistics { accepted: Vec::new(), rejected: Vec::new() };
+        let statistics = MoveStatistics { accepted: Vec::new(), rejected: Vec::new(), chain_accepted: 0, chain_rejected: 0 };
 
         let rng = rand::thread_rng();
 
@@ -79,7 +83,8 @@ impl System {
                 movie_freq: 0, movie_file: "movie".to_string(), repeats: 200,
                 energy_freq: 0, dimensionality: Dimensionality::TWO,
                 msd_freq: 100, diff_block: 50, hard_spheres: false,
-                msd_file: "msd{{BLOCK_NUMBER}}.dat".to_string(), n_warnings: 0,
+                msd_file: "msd{{BLOCK_NUMBER}}.dat".to_string(), 
+                chain_move_freq: 0, chain_max_disp: 0.0, n_warnings: 0,
             }
     }
 
@@ -216,6 +221,16 @@ impl System {
     pub fn update(&mut self) {
         // perform N Monte Carlo moves where N is the number of particles
         for _ in 0..self.particles.len() {
+            // decide whether a chain move should be performed
+            if self.chain_move_freq > 0 {
+                let random: f64 = self.rng.gen();
+                if random < (self.chain_move_freq / self.particles.len() as u32) as f64 {
+                    self.move_chain();
+                    continue;
+                }
+            }
+            
+            
             // randomly select a particle to move
             let index = self.rng.gen_range(0..self.particles.len());
             self.move_particle(index);
@@ -349,6 +364,53 @@ impl System {
             self.statistics.rejected[particle_index] += 1;
         } else {
             self.statistics.accepted[particle_index] += 1;
+        }
+
+    }
+
+    fn move_chain(&mut self) {
+        // calculate original energy of the system
+        let old_energy = self.energy_full();
+
+        // save the original coordinates of particles
+        let old_particles = self.particles.clone();
+        
+        match self.dimensionality {
+            Dimensionality::ONE => {
+
+                let mut dx = self.chain_max_disp * self.rng.gen::<f64>();
+                if self.rng.gen::<bool>() {
+                    dx *= -1.0;   
+                }
+
+                for part in &mut self.particles {
+                    part.position[0] += dx;
+                }
+
+            },
+
+            Dimensionality::TWO => {
+
+                let r = self.chain_max_disp * (self.rng.gen::<f64>()).sqrt();
+                let theta = self.rng.gen::<f64>() * 2.0 * std::f64::consts::PI;
+
+                for part in &mut self.particles {
+                    part.position[0] += r * theta.cos();
+                    part.position[1] += r * theta.sin();
+                }
+            }
+
+        }
+
+        // calculate the new energy of the system
+        let new_energy = self.energy_full();
+
+        // accept or reject the move based on Metropolis criterion
+        if !System::metropolis(new_energy - old_energy, &mut self.rng) {
+            self.particles = old_particles.clone();
+            self.statistics.chain_rejected += 1;
+        } else {
+            self.statistics.chain_accepted += 1;
         }
 
     }
