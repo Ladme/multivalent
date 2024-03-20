@@ -63,7 +63,7 @@ pub struct System {
     /// path to output file for MSD data
     pub msd_file: String,
     /// chain move attempt will be performed on average every Nth MC sweep
-    pub chain_move_freq: u32,
+    pub chain_move_freq: f64,
     /// maximal displacement of a chain move
     pub chain_max_disp: f64,
     /// number of warnings raised during the simulation
@@ -84,7 +84,7 @@ impl System {
                 energy_freq: 0, dimensionality: Dimensionality::TWO,
                 msd_freq: 100, diff_block: 50, hard_spheres: false,
                 msd_file: "msd{{BLOCK_NUMBER}}.dat".to_string(), 
-                chain_move_freq: 0, chain_max_disp: 0.0, n_warnings: 0,
+                chain_move_freq: 0.0, chain_max_disp: 0.0, n_warnings: 0,
             }
     }
 
@@ -222,9 +222,9 @@ impl System {
         // perform N Monte Carlo moves where N is the number of particles
         for _ in 0..self.particles.len() {
             // decide whether a chain move should be performed
-            if self.chain_move_freq > 0 {
+            if self.chain_move_freq > 0.0 {
                 let random: f64 = self.rng.gen();
-                if random < (self.chain_move_freq / self.particles.len() as u32) as f64 {
+                if random < (self.chain_move_freq / self.particles.len() as f64) as f64 {
                     self.move_chain();
                     continue;
                 }
@@ -407,7 +407,7 @@ impl System {
 
         // accept or reject the move based on Metropolis criterion
         if !System::metropolis(new_energy - old_energy, &mut self.rng) {
-            self.particles = old_particles.clone();
+            self.particles = old_particles;
             self.statistics.chain_rejected += 1;
         } else {
             self.statistics.chain_accepted += 1;

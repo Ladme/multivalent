@@ -73,7 +73,7 @@ fn parse_system_line(line: &str, system: &mut System) -> bool {
 
         "msd_file" => system.msd_file = split[1].to_string(),
 
-        "chain_move_freq" => match split[1].parse::<u32>() {
+        "chain_move_freq" => match split[1].parse::<f64>() {
             Ok(x) => system.chain_move_freq = x,
             Err(_) => return false,
         },
