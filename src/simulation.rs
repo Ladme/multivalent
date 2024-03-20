@@ -443,6 +443,8 @@ impl System {
         println!("Dimensionality: {}", self.dimensionality);
         println!("Particles Hard Spheres?: {}", self.hard_spheres);
         println!("MSD File Pattern: {}", self.msd_file);
+        println!("Chain Move Frequency: {}", self.chain_move_freq);
+        println!("Chain Move Max Displacement: {}", self.chain_max_disp);
 
         println!("\nPARTICLES:");
         for (i, part) in self.particles.iter().enumerate() {

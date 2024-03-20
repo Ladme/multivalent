@@ -18,9 +18,9 @@ impl MoveStatistics {
     /// Prepares and prints statistics of translation moves in the simulation(s).
     pub fn report(&self) {
 
-        let total_acc: u64 = self.accepted.iter().sum();
-        let total_rej: u64 = self.rejected.iter().sum();
-        let total = total_acc + total_rej;
+        let total_acc: u64 = self.accepted.iter().sum::<u64>() + self.chain_accepted;
+        let total_rej: u64 = self.rejected.iter().sum::<u64>() + self.chain_rejected;
+        let total = total_acc + total_rej + self.chain_accepted + self.chain_rejected;
 
         println!("\nMove Statistics:");
         println!(">> Total moves: {}", total);
@@ -43,7 +43,7 @@ impl MoveStatistics {
         let chain_total = self.chain_accepted + self.chain_rejected;
 
         println!("\nMove Statistics for Chain:");
-        println!(">> Total chain moves: {}", chain_total);
+        println!(">>>> Total chain moves: {}", chain_total);
         println!(">>>> Accepted moves: {} ({:.2} %) ", self.chain_accepted, (100.0 * self.chain_accepted as f64 / chain_total as f64));
         println!(">>>> Rejected moves: {} ({:.2} %) ", self.chain_rejected, (100.0 * self.chain_rejected as f64 / chain_total as f64));
 
