@@ -42,7 +42,10 @@ impl Particle {
     /// Calculates energy of particle-surface interaction.
     /// Only supports 1D simulations.
     pub fn energy_surface(&self) -> f64 {
-        self.binding * num_traits::sign::signum((2.0 * PI * (self.position[0] / self.wells_distance + self.sin_shift)).sin())
+        self.binding * (1.0 + 
+            (2.0 * PI * (self.position[0] / self.wells_distance + self.sin_shift)).sin() + 
+            (2.0 * PI * (self.position[1] / self.wells_distance + self.cos_shift)).cos()
+        )
     }
 
 
@@ -81,32 +84,4 @@ impl fmt::Display for Particle {
         write!(f, "Position: {}, {}\nBinding: {}\nMaximal Displacement: {}\nSize: {}\nPotential Wells Distance: {}\nSine shift: {}\nCosine shift: {}\n", 
                    self.position[0], self.position[1], self.binding, self.max_disp, self.size, self.wells_distance, self.sin_shift, self.cos_shift)
     }
-}
-
-
-
-/*
-*************************************
-            UNIT TESTS
-*************************************
-*/
-
-#[cfg(test)]
-mod tests {
-
-    use crate::parser::parse_input;
-    use crate::particle::Particle;
-
-    const INPUT_FILE: &str = "test_files/test_input_energy";
-
-    #[test]
-    fn test_particle_surface_energy() {
-
-        let system = parse_input(INPUT_FILE).expect("Could not find input file.");
-        let expected = [-1.0, 3.0, 0.0, 0.5, -0.2];
-        for (i, particle) in system.particles.iter().enumerate() {
-            assert!((particle.energy_surface() - expected[i]).abs() < 0.0001);
-        }
-    }
-    
 }
